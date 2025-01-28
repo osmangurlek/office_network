@@ -9,3 +9,9 @@ env/
 
 # Log dosyaları
 *.log
+
+# Node.js modülleri
+node_modules/
+
+# Derleme dosyaları
+build/
