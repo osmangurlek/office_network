@@ -1,0 +1,11 @@
+# Python dosyaları
+*.pyc
+*.pyo
+__pycache__/
+
+# Sanal ortam klasörü
+env/
+.env
+
+# Log dosyaları
+*.log
