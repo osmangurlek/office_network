@@ -1,0 +1,10 @@
+selenium
+python-dotenv
+fastapi
+uvicorn
+pydantic
+fastapi-utils
+apscheduler
+APScheduler==3.10.4
+sqlalchemy
+psycopg2-binary==2.9.9
