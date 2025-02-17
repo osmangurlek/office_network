@@ -36,7 +36,7 @@ export default function Home() {
         key="status" 
         render={(status) => (
           <>
-            {status === 'true' ? (
+            {status === 'Online' ? (
               <Tag color="green">Çevrimiçi</Tag>
             ) : (
               <Tag color="red">Çevrimdışı</Tag>
