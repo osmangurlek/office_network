@@ -49,6 +49,7 @@ class Device(BaseModel):
     mac_address: str
     ip_address: str
     hostname: str
+    status: str
 
 class DeviceList(BaseModel):
     devices: List[Device]
@@ -99,6 +100,7 @@ async def get_connected_devices() -> List[Device]:
                         mac_address=device.get("MACAddress", "N/A"),
                         ip_address=device.get("IPAddress", "N/A"),
                         hostname=device.get("HostName", "N/A"),
+                        status=str(device.get("WlanActive")).lower()  # 'true' veya 'false' string olarak
                     ))
 
             return connected_devices
