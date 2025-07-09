@@ -15,10 +15,10 @@ class Device(Base):
     __tablename__ = "devices"
 
     id = Column(Integer, primary_key=True, index=True)
-    hostname = Column(String, index=True)  # Kullanıcı adı olarak kullanılacak
+    hostname = Column(String, index=True)
     ip_address = Column(String, index=True)
-    mac_address = Column(String, unique=True, index=True)  # Unique constraint ile tekrar engellenmiş
+    mac_address = Column(String, unique=True, index=True)
 
-    # Employee ile ilişki (opsiyonel)
+    # Employee ile ilişki
     employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
     employee = relationship("Employee", back_populates="device")

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, Button, Descriptions, Space, Breadcrumb } from 'antd';
-import { HomeOutlined, UserOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { HomeOutlined, UserOutlined, ArrowLeftOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import HistoricalGraph from '@/components/HistoricalGraph';
 import PersonStatistics from '@/components/PersonStatistics';
@@ -11,27 +11,40 @@ export default function DetailPage() {
   const searchParams = useSearchParams();
   const mac = searchParams.get('mac');
   const [device, setDevice] = useState(null);
-  
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    // For dummy data, we'll create a mock device
-    // In a real application, you would fetch the device based on MAC address
-    setDevice({
-      mac_address: mac || '00:1B:44:11:3A:B7',
-      ip_address: '192.168.1.105',
-      hostname: 'Ahmet Yılmaz',
-      status: 'Online',
-      department: 'Muhasebe',
-      lastSeen: new Date().toLocaleString('tr-TR'),
-      firstSeen: '01.01.2024 08:30',
-      deviceType: 'Laptop',
-      os: 'Windows 11',
-    });
+    const fetchDevice = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:8000/devices');
+        const data = await response.json();
+        const foundDevice = data.devices.find(d => d.mac_address === mac);
+        if (foundDevice) {
+          setDevice(foundDevice);
+        }
+      } catch (error) {
+        console.error('Error fetching device:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (mac) {
+      fetchDevice();
+      const interval = setInterval(fetchDevice, 15000);
+      return () => clearInterval(interval);
+    }
   }, [mac]);
-  
-  if (!device) {
+
+  if (loading) {
     return <div>Yükleniyor...</div>;
   }
-  
+
+  if (!device) {
+    return <div>Cihaz bulunamadı</div>;
+  }
+
   return (
     <div style={{ padding: '20px' }}>
       <Breadcrumb 
@@ -71,17 +84,18 @@ export default function DetailPage() {
         <Descriptions bordered column={2}>
           <Descriptions.Item label="MAC Adresi">{device.mac_address}</Descriptions.Item>
           <Descriptions.Item label="IP Adresi">{device.ip_address}</Descriptions.Item>
-          <Descriptions.Item label="Departman">{device.department}</Descriptions.Item>
           <Descriptions.Item label="Durum">
             {device.status === 'Online' ? 
               <span style={{ color: 'green' }}>Çevrimiçi</span> : 
               <span style={{ color: 'red' }}>Çevrimdışı</span>
             }
           </Descriptions.Item>
-          <Descriptions.Item label="Son Görülme">{device.lastSeen}</Descriptions.Item>
-          <Descriptions.Item label="İlk Kaydedilme">{device.firstSeen}</Descriptions.Item>
-          <Descriptions.Item label="Cihaz Tipi">{device.deviceType}</Descriptions.Item>
-          <Descriptions.Item label="İşletim Sistemi">{device.os}</Descriptions.Item>
+          <Descriptions.Item label="Aktiflik Süresi">
+            <Space>
+              <ClockCircleOutlined />
+              {device.time}
+            </Space>
+          </Descriptions.Item>
         </Descriptions>
       </Card>
       
@@ -89,7 +103,7 @@ export default function DetailPage() {
       <HistoricalGraph />
       
       {/* Person Statistics */}
-      <PersonStatistics personId={device.mac_address} />
+      <PersonStatistics hostname={device.hostname} />
     </div>
   );
 } 

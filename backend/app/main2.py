@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import json
 import time
 import re
@@ -17,7 +17,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from config import settings
 from database import SessionLocal, engine
@@ -49,6 +49,7 @@ class Device(BaseModel):
     ip_address: str
     hostname: str
     status: str
+    time: str
 
 class DeviceList(BaseModel):
     devices: List[Device]
@@ -94,10 +95,10 @@ async def get_connected_devices() -> List[Device]:
                 # Extract relevant fields using regex
                 fields = match.split(',')
                 
-                
                 IpAddr = fields[1].strip('\"').replace("\\x2e", ".")
                 MacAddr = fields[2].strip('\"').replace("\\x3a", ":")
                 DevStatus = fields[6].strip('\"')
+                Time = fields[8].strip('\"').replace("\\x3a", ":")
                 HostName = fields[10].strip('\"')
                         
                 # Filter only Online devices
@@ -106,7 +107,8 @@ async def get_connected_devices() -> List[Device]:
                         mac_address=MacAddr,
                         ip_address=IpAddr,
                         hostname=HostName,
-                        status=DevStatus
+                        status=DevStatus,
+                        time=Time
                     ))
                     
             return connected_devices
@@ -188,7 +190,127 @@ async def start_scheduler():
 async def shutdown_scheduler():
     scheduler.shutdown()
 
+class HistoricalData(BaseModel):
+    time: str
+    count: int
+
+class HistoricalResponse(BaseModel):
+    data: List[HistoricalData]
+
+class DailyStats(BaseModel):
+    date: str
+    onlineHours: float
+    offlineIntervals: int
+
+class PersonSummary(BaseModel):
+    totalOnlineDays: int
+    averageHoursPerDay: float
+    maxHoursOnline: float
+
+class PersonStatsResponse(BaseModel):
+    daily: List[DailyStats]
+    summary: PersonSummary
+
+@app.get("/historical", response_model=HistoricalResponse)
+async def get_historical_data(days: int = 7):
+    """Get historical data for connected devices"""
+    try:
+        db = SessionLocal()
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Query your database for historical data
+        historical_records = db.query(models.DeviceHistory)\
+            .filter(models.DeviceHistory.timestamp >= start_date)\
+            .all()
+        
+        # Process and format the data
+        data_points = []
+        current_date = start_date
+        while current_date <= end_date:
+            count = sum(1 for record in historical_records 
+                       if record.status == "Online" and 
+                       record.timestamp.date() == current_date.date())
+            
+            data_points.append(HistoricalData(
+                time=current_date.strftime("%Y-%m-%d"),
+                count=count
+            ))
+            current_date += timedelta(days=1)
+            
+        return HistoricalResponse(data=data_points)
+    except Exception as e:
+        logger.error(f"Error fetching historical data: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.get("/person/{hostname}/stats", response_model=PersonStatsResponse)
+async def get_person_stats(hostname: str, days: int = 30):
+    """Get statistics for a specific person"""
+    try:
+        db = SessionLocal()
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Query your database for person's device history
+        history_records = db.query(models.DeviceHistory)\
+            .join(models.Device)\
+            .filter(
+                models.Device.hostname == hostname,
+                models.DeviceHistory.timestamp >= start_date
+            )\
+            .all()
+        
+        # Process daily statistics
+        daily_stats = []
+        total_online_hours = 0
+        max_hours = 0
+        online_days = set()
+        
+        current_date = start_date
+        while current_date <= end_date:
+            day_records = [r for r in history_records 
+                          if r.timestamp.date() == current_date.date()]
+            
+            # Calculate online hours and intervals for the day
+            online_hours = sum(r.duration.total_seconds() / 3600 
+                             for r in day_records if r.status == "Online")
+            offline_intervals = sum(1 for r in day_records if r.status == "Offline")
+            
+            if online_hours > 0:
+                online_days.add(current_date.date())
+                total_online_hours += online_hours
+                max_hours = max(max_hours, online_hours)
+            
+            daily_stats.append(DailyStats(
+                date=current_date.strftime("%Y-%m-%d"),
+                onlineHours=round(online_hours, 2),
+                offlineIntervals=offline_intervals
+            ))
+            
+            current_date += timedelta(days=1)
+        
+        # Calculate summary statistics
+        total_days = len(online_days)
+        avg_hours = total_online_hours / days if days > 0 else 0
+        
+        summary = PersonSummary(
+            totalOnlineDays=total_days,
+            averageHoursPerDay=round(avg_hours, 2),
+            maxHoursOnline=round(max_hours, 2)
+        )
+        
+        return PersonStatsResponse(
+            daily=daily_stats,
+            summary=summary
+        )
+    except Exception as e:
+        logger.error(f"Error fetching person stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run(app, host="0.0.0.0", port=8000)
