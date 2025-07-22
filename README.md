@@ -1,6 +1,10 @@
 # Project Title
 
-OfficeNest
+Who's in the office
+
+## Project Description
+
+Designed and developed a web-based data analytics platform for monitoring office staff. The system automatically tracks daily in-office presence of employees, presents entry-exit data in tabular format, and performs statistical analyses. By collecting data based on MAC addresses from network devices, the platform provides strategic insights aimed at optimizing workforce efficiency.
 
 ## Features
 
@@ -15,7 +19,10 @@ OfficeNest
 
 ## Installation
 
-
+1. Install requirements:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ### Prerequisites
 
@@ -74,7 +81,7 @@ OfficeNest
    uvicorn <file_name>:app --reload
    ```
    file_name depends on what you use if you use API for getting MAC addresses use 'main',
-   use .aps extension URL fot getting MAC addresses use 'main2'
+   use .aps extension URL for getting MAC addresses use 'main2'
 
 ## Usage
 
